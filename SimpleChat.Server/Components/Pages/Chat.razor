@@ -1,0 +1,97 @@
+﻿@page "/chat"
+@inject MyDbContext db
+@attribute [StreamRendering]
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>Chat</PageTitle>
+
+<h2>Communication</h2>
+
+@if (messages is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    @if (messages.Count == 0)
+    {
+        <p>Not Started Chat.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Sender</th>
+                    <th scope="col">Message</th>
+                    <th scope="col">Date Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var message in messages)
+                {
+                    <tr>
+                        <td>@(message.Sender)</td>
+                        <td>@(message.Message)</td>
+                        <td>@(message.MessageDateTime.ToString("yyyy/MM/dd - HH:mm"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+<hr />
+<div class="row">
+    <label class="col-1 fw-bold">Message:</label> &ensp;
+    <textarea class="col-8" @bind="@newMessage" /> &ensp;
+    <button class="btn btn-sm btn-primary col-2 mb-1" @onclick="SendMessage">Send Message</button>
+</div>
+
+@code {
+    private List<MessageModel>? messages;
+    private string newMessage = string.Empty;
+    private System.Threading.Timer? Timer;
+
+    protected override void OnInitialized()
+    {
+        Timer = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(UpdateUI);
+            }, null, 0, 5000);
+    }
+
+    private async Task SendMessage()
+    {
+        try
+        {
+            var newMsg = new MessageModel() { Sender = "Admin", Message = newMessage };
+            db.Messages.Add(newMsg);
+            var res = await db.SaveChangesAsync();
+            if (res >= 1)
+            {
+                UpdateUI();
+                newMessage = string.Empty;
+                StateHasChanged();
+            }
+        }
+        catch { }
+    }
+
+    private void UpdateUI()
+    {
+        try
+        {
+            messages = db.Messages.ToList();
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    public void Dispose()
+    {
+        Timer?.Dispose();
+        Timer = null;
+    }
+}
